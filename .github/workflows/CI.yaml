@@ -1,22 +1,49 @@
-name: CI
+name: Customer Service CI
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: customerdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
-      - name: Check out the code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
           cache: maven
+
+      - name: Make mvnw executable
+        run: chmod +x ./mvnw
 
       - name: Run tests
         run: ./mvnw --batch-mode test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/customerdb
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+
+      - name: Build package
+        run: ./mvnw -B -DskipTests package
